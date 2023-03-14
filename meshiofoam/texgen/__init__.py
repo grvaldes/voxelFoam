@@ -1,3 +1,3 @@
-from ._texgenvoxel import read, write
+from ._texgen import read, write
 
 __all__ = ["read", "write"]

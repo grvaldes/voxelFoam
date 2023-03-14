@@ -52,32 +52,14 @@ class polyMesh:
         zones = {}
 
         if ndim == 1:
-            if mesh.point_data == {}:
-                for key, zoneI in mesh.point_sets.items():
+            for key, zoneI in mesh.point_sets.items():
+                if "All" not in key:
                     zones[key] = zoneI
-            elif mesh.point_sets == {}:
-                for key, zoneI in mesh.point_data.items():
-                    zones[key] = zoneI
-            else:
-                Warning("No point sets in the mesh.")
-        
+
         elif ndim > 1:
-            if self.origin == "msh":
-                if ndim == 2:
-                    zones_array = mesh.cell_data["gmsh:physical"][0]
-                elif ndim == 3:
-                    zones_array = mesh.cell_data["gmsh:physical"][1]
-
-                for key, value in mesh.field_data.items():
-                    if ndim == value[-1]:
-                        zones[key] = np.nonzero(zones_array == value[0])[0]
-
-            elif self.origin == "inp":
-                for key, value in mesh.cell_sets_dict.items():
-                    if key != "All":
-                        for inKey, inValue in value.items():
-                            if ndim == topological_dimension[inKey]:
-                                zones[key + "_" + inKey] = inValue
+            for key, value in mesh.cell_sets.items():
+                if "All" not in key:
+                        zones[key] = value
 
         return zones
         
@@ -216,21 +198,12 @@ class polyMesh:
         ind = 0
 
         for elType in self.cells:
-            if elType["type"] == "hexahedron":
-                of_elem = of_hex
-            elif elType["type"] == "tetra":
-                of_elem = of_tet
-            elif elType["type"] == "wedge":
-                of_elem = of_psm
-            elif elType["type"] == "pyramid":
-                of_elem = of_pyr
-
             elFace = {}
 
             for elem in elType["points"]:
                 elFace[ind] = {}
             
-                for k, v in of_elem.items():
+                for k, v in of_hex.items():
                     elFace[ind][k] = elem[v]
 
                 ind += 1
@@ -241,9 +214,6 @@ class polyMesh:
 
 
     def generateFaceZones(self):
-        # FOR NOW THIS IS ONLY VALID FOR THE TEXGEN INP FILES.
-        # I NEED TO MAKE IT GENERIC.
-
         texgen_to_openfoam = {
             "outlet": ["FaceA","Edge2","Edge3","Edge6","Edge7","MasterNode2","MasterNode6","MasterNode7","MasterNode3"],
             "inlet": ["FaceB","Edge1","Edge4","Edge5","Edge8","MasterNode1","MasterNode4","MasterNode8","MasterNode5"],
