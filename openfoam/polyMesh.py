@@ -140,6 +140,7 @@ class polyMesh:
 
         cell_ind_of_face = np.tile(np.arange(len(cellFaces), dtype="int32"), (topological_faces["hexahedron"],1)).T
         face_array_nodes = -np.ones(shape=(len(cellFaces)*topological_faces["hexahedron"], nodes_per_face["hexahedron"]), dtype="int32")
+        face_array_index = np.arange(face_array_nodes.shape[0]).reshape(cell_ind_of_face.shape)
 
         for faces in cellFaces.values():
             for nodes in faces.values():
@@ -162,10 +163,11 @@ class polyMesh:
         neigh[:,5] = dx*dy
 
         inner_owner = cell_ind_of_face[owner].reshape(-1)
-        self.neighbour = (cell_ind_of_face + neigh).reshape(-1)
+        self.neighbour = cell_ind_of_face + neigh
+        self.neighbour = self.neighbour[owner].reshape(-1)
         self.owner = np.hstack((inner_owner, bound_owner))
 
-        self.innerFaces = face_array_nodes[inner_owner.reshape(-1),:]
+        self.innerFaces = face_array_nodes[face_array_index[owner],:]
     
 
     def assignCellFaces(self):
