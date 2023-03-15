@@ -49,23 +49,22 @@ def writeFacesFile(poly, filename):
         writer.write(writeBreak(1))
         writer.write("\n\n")
 
-        nFaces = 0
+        nFaces = poly.innerFaces.shape[0] 
 
-        for _, v in poly.innerFaces.items():
-            nFaces += v.shape[0]
-
-        for _, v in poly.boundary.items():
+        for v in poly.boundary.values():
             nFaces += v.shape[0]
 
         writer.write(f"{nFaces}\n(\n")
 
-        for k, v in poly.innerFaces.items():
-            for line in v:
-                ar2str = " ".join(map(str, line))
-                writer.write(f"{k}({ar2str})\n")
+        pts = poly.innerFaces.shape[1]
 
-        for k, v in sorted(poly.boundary.items()):
-            pts = k.split("_")[-1]
+        for line in poly.innerFaces:
+            ar2str = " ".join(map(str, line))
+            writer.write(f"{pts}({ar2str})\n")
+
+        for k, v in poly.boundary.items():
+            pts = v.shape[1]
+            
             for line in v:
                 ar2str = " ".join(map(str, line))
                 writer.write(f"{pts}({ar2str})\n")
@@ -82,15 +81,7 @@ def writeOwnerFile(poly, filename):
         writer.write(writeBreak(1))
         writer.write("\n\n")
 
-        nFaces = 0
-
-        for _, v in poly.innerFaces.items():
-            nFaces += v.shape[0]
-
-        for _, v in poly.boundary.items():
-            nFaces += v.shape[0]
-
-        writer.write(f"{nFaces}\n(\n")
+        writer.write(f"{poly.owner.size}\n(\n")
 
         for line in poly.owner:
             writer.write(f"{line}\n")
@@ -125,19 +116,12 @@ def writeBoundaryFile(poly, filename):
         writer.write(writeBreak(1))
         writer.write("\n\n")
 
-        bounds = []
-
-        for key in sorted(poly.boundary.keys()):
-            bounds.append(key.split("_")[0])
-
-        bounds = np.unique(bounds)
-
-        n_bound = len(bounds)
-        n_start = len(poly.neighbour)
+        n_bound = len(poly.boundary)
+        n_start = poly.neighbour.size
 
         writer.write(f"{n_bound}\n(\n")
 
-        for patch in bounds:
+        for patch, value in poly.boundary.items():
             n_faces = 0
 
             writer.write(f"\t{patch}\n".expandtabs(4))
@@ -145,9 +129,7 @@ def writeBoundaryFile(poly, filename):
             writer.write("\t\ttype\t\t\tpatch;\n".expandtabs(4))
             writer.write("\t\tphysicalType\tpatch;\n".expandtabs(4))
 
-            for key, value in poly.boundary.items():
-                if patch in key:
-                    n_faces += value.shape[0]
+            n_faces += value.shape[0]
 
             writer.write(f"\t\tnFaces\t\t\t{n_faces};\n".expandtabs(4))
             writer.write(f"\t\tstartFace\t\t{n_start};\n".expandtabs(4))
@@ -161,35 +143,19 @@ def writeBoundaryFile(poly, filename):
 
 
 def writeSets(poly, filename):
-    sets = []
-
-    for key in sorted(poly.cellZones.keys()):
-        if "All" in key:
-            continue
-
-        sets.append(key.split("_")[0])
-
-    sets = np.unique(sets)
-    
-    for set in sets:
+    for key, value in poly.cellZones.items():
         nElems = 0
         tElems = []
 
-        with open(filename + "/constant/polyMesh/sets/" + set,"w") as writer:
+        with open(filename + "/constant/polyMesh/sets/" + key,"w") as writer:
             writer.write(writeBanner())
-            writer.write(writeFoamFile("cellSet","constant/polyMesh",set))
+            writer.write(writeFoamFile("cellSet","constant/polyMesh",key))
             writer.write(writeBreak(1))
             writer.write("\n\n")
 
-            for key, value in poly.cellZones.items():
-                if set in key:
-                    nElems += value.size
-                    tElems.append(value)
+            writer.write(f"{len(value)}\n(\n")
 
-            tElems = np.hstack(tuple(tElems))
-            writer.write(f"{nElems}\n(\n")
-
-            for line in tElems:
+            for line in value:
                 writer.write(f"{line}\n")
 
             writer.write(")\n")
@@ -214,41 +180,21 @@ def writeFaceZones(poly, filename):
 
 
 def writeCellZones(poly, filename):
-    sets = []
-
-    for key in sorted(poly.cellZones.keys()):
-        if "All" in key:
-            continue
-
-        sets.append(key.split("_")[0])
-
-    sets = np.unique(sets)
-
     with open(filename + "/constant/polyMesh/cellZones","w") as writer:
         writer.write(writeBanner())
         writer.write(writeFoamFile("regIOobject","constant/polyMesh","cellZones"))
         writer.write(writeBreak(1))
         writer.write("\n\n")
 
-        writer.write(f"{sets.size}\n(\n")
+        writer.write(f"{len(poly.cellZones)}\n(\n")
 
-        for set in sets:
-            nElems = 0
-            tElems = []
-
-            for key, value in poly.cellZones.items():
-                if set in key:
-                    nElems += value.size
-                    tElems.append(value)
-
-            tElems = np.hstack(tuple(tElems))
-
-            writer.write(set + "\n{\n")
+        for key, value in poly.cellZones.items():
+            writer.write(key + "\n{\n")
             writer.write("\ttype\t\tcellZone;\n".expandtabs(4))
             writer.write("\tcellLabels\tList<label>\n".expandtabs(4))
-            writer.write(f"\t{nElems}\n\t(\n".expandtabs(4))
+            writer.write(f"\t{len(value)}\n\t(\n".expandtabs(4))
             
-            for line in tElems:
+            for line in value:
                 writer.write(f"\t\t{line}\n".expandtabs(4))
 
             writer.write("\t);\n}\n\n".expandtabs(4))

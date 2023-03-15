@@ -8,10 +8,8 @@ class polyMesh:
 
         self.origin = fileType
         self.points = mesh.points
-        self.boundFaces = self.getCellsFromMeshio(mesh, 2)
         self.cells = self.getCellsFromMeshio(mesh, 3)
         self.pointZones = self.getZonesFromMeshio(mesh, 1)
-        self.faceZones = self.getZonesFromMeshio(mesh, 2)
         self.cellZones = self.getZonesFromMeshio(mesh, 3)
 
         self.cleanPoints()
@@ -56,7 +54,7 @@ class polyMesh:
                 if "All" not in key:
                     zones[key] = zoneI
 
-        elif ndim > 1:
+        elif ndim == 3:
             for key, value in mesh.cell_sets.items():
                 if "All" not in key:
                         zones[key] = value
@@ -109,88 +107,63 @@ class polyMesh:
 
     def createAllFaces(self):
         cellFaces = self.assignCellFaces()
-        self.innerFaces = {}
         self.boundary = {}
         bnd_grp = {}
 
-        face_ind = []
-        face_arr = []
-        bound = []
-        inner = []
-        neigh = []
-        owner = []
-        bowner = []
-
-        shcount = 0
         count = 0
 
-        for geom, elems in cellFaces.items():
-            face_ind.append(np.zeros(shape=(len(elems)*topological_faces[geom]), dtype="int32"))
-            face_arr.append(-np.ones(shape=(len(elems)*topological_faces[geom], nodes_per_face[geom]), dtype="int32"))
-            bound.append(np.zeros(shape=(len(elems)*topological_faces[geom]), dtype="int32"))
-            inner.append(np.zeros(shape=(len(elems)*topological_faces[geom]), dtype="int32"))
-            neigh.append(np.zeros(shape=(len(elems)*topological_faces[geom]), dtype="int32"))
-            owner.append(np.zeros(shape=(len(elems)*topological_faces[geom]), dtype="int32"))
-            bowner.append(np.zeros(shape=(len(elems)*topological_faces[geom]), dtype="int32"))
+        face_ind = np.zeros(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"]), dtype="int32")
+        face_arr = -np.ones(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"], nodes_per_face["hexahedron"]), dtype="int32")
+        owner = np.zeros(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"]), dtype="int32")
+        neigh = np.zeros(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"]), dtype="int32")
+        
+        for ind, faces in cellFaces["hexahedron"].items():
+            for _, points in faces.items():
+                face_ind[count] = int(ind)
+                face_arr[count,:len(points)] = points
+                count += 1
 
-            for ind, faces in elems.items():
-                for _, points in faces.items():
-                    face_ind[shcount][count] = int(ind)
-                    face_arr[shcount][count,:len(points)] = points
-                    count += 1
-
-            shcount += 1
-
-        tot_cl = 0
-        tot_in = 0
-
-        for i in range(len(face_arr)):
-            mask = np.zeros(shape=(face_ind[i].size), dtype="int32")
-            node = np.arange(face_ind[i].size, dtype="int32")
-            _, ind, inv, cnt = np.unique(np.sort(face_arr[i], axis=1), axis=0, return_index=True, return_inverse=True, return_counts=True)
+        mask = np.zeros(shape=(face_ind.size), dtype="int32")
+        node = np.arange(face_ind.size, dtype="int32")
+        _, ind, inv, cnt = np.unique(np.sort(face_arr, axis=1), axis=0, return_index=True, return_inverse=True, return_counts=True)
+        
+        for index in range(len(inv)):
+            pair = np.nonzero(inv == inv[index])
+            owner[index] = face_ind[pair[0][0]]
             
-            for index in range(len(inv)):
-                pair = np.nonzero(inv == inv[index])
-                owner[i][index] = face_ind[i][pair[0][0]]
-                
-                if pair[0].size == 2:
-                    neigh[i][index] = face_ind[i][pair[0][1]]
+            if pair[0].size == 2:
+                neigh[index] = face_ind[pair[0][1]]
 
-            mask[ind] = cnt
-            bound[i] = node[np.nonzero(mask == 1)]                     # index of faces we will take as boundaries (no repeated)
-            inner[i] = node[np.nonzero(mask == 2)] + tot_in            # index of faces we will take as inner (no repeated)
-            bowner[i] = owner[i][node[np.nonzero(mask == 1)]] + tot_cl # owner of inner faces
-            owner[i] = owner[i][node[np.nonzero(mask == 2)]] + tot_cl  # owner of inner faces
-            neigh[i] = neigh[i][node[np.nonzero(mask == 2)]] + tot_cl  # neighbour of each inner face
+        mask[ind] = cnt
+        bound = node[np.nonzero(mask == 1)]            # index of faces we will take as boundaries (no repeated)
+        inner = node[np.nonzero(mask == 2)]            # index of faces we will take as inner (no repeated)
+        bowner = owner[node[np.nonzero(mask == 1)]]    # owner of inner faces
+        owner = owner[node[np.nonzero(mask == 2)]]     # owner of inner faces
+        neigh = neigh[node[np.nonzero(mask == 2)]]     # neighbour of each inner face
 
-            self.innerFaces[face_arr[i].shape[1]] = face_arr[i][inner[i],:]
+        self.innerFaces = face_arr[inner,:]
 
-            tot_cl += np.max(face_ind[i]) + 1
-            tot_in += inner[i].size
+        for key in self.faceZones.keys():
+            bnd_grp[key] = np.array([], dtype="int32")  
+            self.boundary[key] = []  
 
-            for k in self.faceZones.keys():
-                key = k + "_" + str(face_arr[i].shape[1])
-                bnd_grp[key] = np.array([], dtype="int32")  
-                self.boundary[key] = []  
+        for j in range(bound.size):
+            nod = bound[j]
+            curr_face = face_arr[nod,:]
 
-            for j in range(bound[i].size):
-                nod = bound[i][j]
-                curr_face = face_arr[i][nod,:]
+            for key in self.faceZones.keys():
+                check = np.intersect1d(curr_face, self.faceZones[key])
 
-                for k in self.faceZones.keys():
-                    key = k + "_" + str(face_arr[i].shape[1])
-                    check = np.intersect1d(curr_face, self.faceZones[k])
+                if check.size == curr_face.size:
+                    bnd_grp[key] = np.hstack((bnd_grp[key], bowner[j]))
+                    self.boundary[key].append(face_arr[nod,:])
 
-                    if check.size == curr_face.size:
-                        bnd_grp[key] = np.hstack((bnd_grp[key], bowner[i][j]))
-                        self.boundary[key].append(face_arr[i][nod,:])
+        for key in self.boundary.keys():
+            self.boundary[key] = np.vstack(tuple(self.boundary[key]))
+            owner = np.hstack((owner, bnd_grp[key]))
 
-        for k in sorted(self.boundary.keys()):
-            self.boundary[k] = np.vstack(tuple(self.boundary[k]))
-            owner.append(bnd_grp[k])
-
-        self.neighbour = np.hstack(tuple(neigh))
-        self.owner = np.hstack(tuple(owner))
+        self.neighbour = neigh
+        self.owner = owner
 
     
     def assignCellFaces(self):
@@ -214,6 +187,8 @@ class polyMesh:
 
 
     def generateFaceZones(self):
+        self.faceZones = {}
+
         texgen_to_openfoam = {
             "outlet": ["FaceA","Edge2","Edge3","Edge6","Edge7","MasterNode2","MasterNode6","MasterNode7","MasterNode3"],
             "inlet": ["FaceB","Edge1","Edge4","Edge5","Edge8","MasterNode1","MasterNode4","MasterNode8","MasterNode5"],
