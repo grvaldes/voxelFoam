@@ -1,4 +1,3 @@
-import numpy as np
 
 def writePointsFile(poly, filename):
     with open(filename + "/constant/polyMesh/points","w") as writer:
@@ -144,18 +143,15 @@ def writeBoundaryFile(poly, filename):
 
 def writeSets(poly, filename):
     for key, value in poly.cellZones.items():
-        nElems = 0
-        tElems = []
-
         with open(filename + "/constant/polyMesh/sets/" + key,"w") as writer:
             writer.write(writeBanner())
             writer.write(writeFoamFile("cellSet","constant/polyMesh",key))
             writer.write(writeBreak(1))
             writer.write("\n\n")
 
-            writer.write(f"{len(value)}\n(\n")
+            writer.write(f"{len(value[0])}\n(\n")
 
-            for line in value:
+            for line in value[0]:
                 writer.write(f"{line}\n")
 
             writer.write(")\n")
@@ -192,9 +188,9 @@ def writeCellZones(poly, filename):
             writer.write(key + "\n{\n")
             writer.write("\ttype\t\tcellZone;\n".expandtabs(4))
             writer.write("\tcellLabels\tList<label>\n".expandtabs(4))
-            writer.write(f"\t{len(value)}\n\t(\n".expandtabs(4))
+            writer.write(f"\t{len(value[0])}\n\t(\n".expandtabs(4))
             
-            for line in value:
+            for line in value[0]:
                 writer.write(f"\t\t{line}\n".expandtabs(4))
 
             writer.write("\t);\n}\n\n".expandtabs(4))
