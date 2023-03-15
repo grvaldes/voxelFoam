@@ -1,14 +1,18 @@
 # 2DTextile.py
+from TexGen.Core import *
+
 # Specify weave parameters
 nwarp=4 #Number of weft yarns in the unit cell
 nweft=4 #Number of warp yarns in the unit cell
 s=1.2 #Spacing between the yarns
 t=0.6 #Thickness of the fabric (sum of two yarn heights)
 ref=True #Refine model (True/False)
+
 # Create 2D textile
 weave = CTextileWeave2D( nweft, nwarp, s, t, ref )
 weave.SetGapSize(0)
 weave.SetYarnWidths(0.8)
+
 # Set the weave pattern
 weave.SwapPosition(0, 1)
 weave.SwapPosition(0, 3)
@@ -40,20 +44,25 @@ weave.AssignDefaultDomain()
 textilename = AddTextile(weave)
 
 #Add to the textile database
-AddTextile(weave)
+# AddTextile(weave)
 
-section = CSectionPowerEllipse(0.4, 0.2, 1, 0)
-yarnsection.AddSection(section)
-yarnsection.AddSection(section)
-yarnsection.AddSection(section)
-yarnsection.AddSection(section)
-yarnsection.AddSection(section)
-textile = GetTextile('2DWeave(W:4,H:4)')
-textile.GetYarn(4).AssignSection(yarnsection)
-textile.GetYarn(5).AssignSection(yarnsection)
-textile.GetYarn(6).AssignSection(yarnsection)
-textile.GetYarn(7).AssignSection(yarnsection)
+# section = CSectionPowerEllipse(0.4, 0.2, 1, 0)
 
+# yarnsection.AddSection(section)
+# yarnsection.AddSection(section)
+# yarnsection.AddSection(section)
+# yarnsection.AddSection(section)
+# yarnsection.AddSection(section)
+# textile = GetTextile('2DWeave(W:4,H:4)')
+# textile.GetYarn(4).AssignSection(yarnsection)
+# textile.GetYarn(5).AssignSection(yarnsection)
+# textile.GetYarn(6).AssignSection(yarnsection)
+# textile.GetYarn(7).AssignSection(yarnsection)
 
-
+VoxMesh = CRectangularVoxelMesh()
+vx=100
+vy=100
+vz=100
+VoxMesh.SaveVoxelMesh(weave, "test_gabi.inp", vx, vy, vz, True, True,
+MATERIAL_CONTINUUM, 0 )
 

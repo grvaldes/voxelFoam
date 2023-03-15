@@ -4,10 +4,8 @@ from .common import *
 class polyMesh:
 
     def __init__(self, mesh, fileType):
-        # self.owner WILL NOT INCLUDE BOUNDARIES, THEY WILL ONLY BE WRITTEN
-
         self.origin = fileType
-        self.points = mesh.points
+        self.points = self.getPoints(mesh)
         self.cells = self.getCellsFromMeshio(mesh, 3)
         self.pointZones = self.getZonesFromMeshio(mesh, 1)
         self.cellZones = self.getZonesFromMeshio(mesh, 3)
@@ -20,7 +18,7 @@ class polyMesh:
         # self.faceCenter = {}
         # self.cellCenter = {}
 
-        # self.getFacesCenter()
+        # self.getFacesCenter()"
         # self.getCellsCenter()
 
         # self.faceArea = {}
@@ -29,6 +27,15 @@ class polyMesh:
         # self.getFacesArea()
         # self.getCellsVolume()
 
+
+    def getPoints(self, mesh):
+        pts = mesh.points
+        zon = mesh.point_sets
+
+        self.boundBox = np.vstack((np.min(pts,0),np.max(pts,0))).T
+        self.discretization = np.array([zon["Edge9"].size, zon["Edge5"].size, zon["Edge1"].size], dtype="int32") + 1
+
+        return pts
 
     
     def getCellsFromMeshio(self, mesh, ndim):
@@ -108,80 +115,76 @@ class polyMesh:
     def createAllFaces(self):
         cellFaces = self.assignCellFaces()
         self.boundary = {}
-        bnd_grp = {}
+
+        dx, dy, dz = self.discretization
+
+        bound = {
+            "left" : np.hstack(tuple(np.arange(0, dx*dy, dx) + k*dx*dy for k in range(dz))),
+            "right" : np.hstack(tuple(np.arange(dx-1, dx*dy+1, dx) + k*dx*dy for k in range(dz))),
+            "front" : np.hstack(tuple(np.arange(dx) + k*dx*dy for k in range(dz))),
+            "back" : np.hstack(tuple(np.arange(dx*(dy-1), dx*dy) + k*dx*dy for k in range(dz))),
+            "top" : np.arange(dx*dy*(dz-1), dx*dy*dz),
+            "bottom" : np.arange(dx*dy),
+        }
+
+        self.boundary["left"] = np.array([cellFaces[int(k)]["face4"] for k in bound["left"]], dtype="int32")
+        self.boundary["right"] = np.array([cellFaces[int(k)]["face3"] for k in bound["right"]], dtype="int32")
+        self.boundary["front"] = np.array([cellFaces[int(k)]["face1"] for k in bound["front"]], dtype="int32")
+        self.boundary["back"] = np.array([cellFaces[int(k)]["face2"] for k in bound["back"]], dtype="int32")
+        self.boundary["top"] = np.array([cellFaces[int(k)]["face6"] for k in bound["top"]], dtype="int32")
+        self.boundary["bottom"] = np.array([cellFaces[int(k)]["face5"] for k in bound["bottom"]], dtype="int32")
+
+        bound_owner = np.hstack(tuple(bound[key] for key in bound.keys()))
 
         count = 0
 
-        face_ind = np.zeros(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"]), dtype="int32")
-        face_arr = -np.ones(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"], nodes_per_face["hexahedron"]), dtype="int32")
-        owner = np.zeros(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"]), dtype="int32")
-        neigh = np.zeros(shape=(len(cellFaces["hexahedron"])*topological_faces["hexahedron"]), dtype="int32")
-        
-        for ind, faces in cellFaces["hexahedron"].items():
-            for _, points in faces.items():
-                face_ind[count] = int(ind)
-                face_arr[count,:len(points)] = points
+        cell_ind_of_face = np.tile(np.arange(len(cellFaces), dtype="int32"), (topological_faces["hexahedron"],1)).T
+        face_array_nodes = -np.ones(shape=(len(cellFaces)*topological_faces["hexahedron"], nodes_per_face["hexahedron"]), dtype="int32")
+
+        for faces in cellFaces.values():
+            for nodes in faces.values():
+                face_array_nodes[count,:] = nodes
                 count += 1
-
-        mask = np.zeros(shape=(face_ind.size), dtype="int32")
-        node = np.arange(face_ind.size, dtype="int32")
-        _, ind, inv, cnt = np.unique(np.sort(face_arr, axis=1), axis=0, return_index=True, return_inverse=True, return_counts=True)
         
-        for index in range(len(inv)):
-            pair = np.nonzero(inv == inv[index])
-            owner[index] = face_ind[pair[0][0]]
-            
-            if pair[0].size == 2:
-                neigh[index] = face_ind[pair[0][1]]
+        owner = np.ones(shape=(cell_ind_of_face.shape), dtype=bool)
+        neigh = np.zeros(shape=(cell_ind_of_face.shape), dtype="int32")
 
-        mask[ind] = cnt
-        bound = node[np.nonzero(mask == 1)]            # index of faces we will take as boundaries (no repeated)
-        inner = node[np.nonzero(mask == 2)]            # index of faces we will take as inner (no repeated)
-        bowner = owner[node[np.nonzero(mask == 1)]]    # owner of inner faces
-        owner = owner[node[np.nonzero(mask == 2)]]     # owner of inner faces
-        neigh = neigh[node[np.nonzero(mask == 2)]]     # neighbour of each inner face
+        owner[:,[0,3,4]] = 0          # Deleting all left, bottom and front faces from ownership
+        owner[bound["back"],1] = 0    # Deleting boundaries from ownership
+        owner[bound["right"],2] = 0
+        owner[bound["top"],5] = 0
 
-        self.innerFaces = face_arr[inner,:]
+        neigh[:,0] = -dx
+        neigh[:,1] = dx
+        neigh[:,2] = 1
+        neigh[:,3] = -1
+        neigh[:,4] = -dx*dy
+        neigh[:,5] = dx*dy
 
-        for key in self.faceZones.keys():
-            bnd_grp[key] = np.array([], dtype="int32")  
-            self.boundary[key] = []  
+        inner_owner = cell_ind_of_face[owner].reshape(-1)
+        self.neighbour = (cell_ind_of_face + neigh).reshape(-1)
+        self.owner = np.hstack((inner_owner, bound_owner))
 
-        for j in range(bound.size):
-            nod = bound[j]
-            curr_face = face_arr[nod,:]
-
-            for key in self.faceZones.keys():
-                check = np.intersect1d(curr_face, self.faceZones[key])
-
-                if check.size == curr_face.size:
-                    bnd_grp[key] = np.hstack((bnd_grp[key], bowner[j]))
-                    self.boundary[key].append(face_arr[nod,:])
-
-        for key in self.boundary.keys():
-            self.boundary[key] = np.vstack(tuple(self.boundary[key]))
-            owner = np.hstack((owner, bnd_grp[key]))
-
-        self.neighbour = neigh
-        self.owner = owner
-
+        self.innerFaces = face_array_nodes[inner_owner.reshape(-1),:]
     
+
     def assignCellFaces(self):
         cellFace = {}
         ind = 0
 
-        for elType in self.cells:
-            elFace = {}
+        # for k, v in of_hex.items():
+        #     cellFace[k] = []
 
-            for elem in elType["points"]:
-                elFace[ind] = {}
-            
-                for k, v in of_hex.items():
-                    elFace[ind][k] = elem[v]
+        #     for elem in self.cells[0]["points"]:
+        #         pass
 
-                ind += 1
+        for elem in self.cells[0]["points"]:
+            cellFace[ind] = {}
+        
+            for k, v in of_hex.items():
+                cellFace[ind][k] = elem[v]
 
-            cellFace[elType["type"]] = elFace
+            ind += 1
 
         return cellFace
 
@@ -190,10 +193,10 @@ class polyMesh:
         self.faceZones = {}
 
         texgen_to_openfoam = {
-            "outlet": ["FaceA","Edge2","Edge3","Edge6","Edge7","MasterNode2","MasterNode6","MasterNode7","MasterNode3"],
-            "inlet": ["FaceB","Edge1","Edge4","Edge5","Edge8","MasterNode1","MasterNode4","MasterNode8","MasterNode5"],
-            "front": ["FaceC","Edge3","Edge4","Edge10","Edge11","MasterNode4","MasterNode3","MasterNode7","MasterNode8"],
-            "back": ["FaceD","Edge1","Edge2","Edge9","Edge12","MasterNode1","MasterNode5","MasterNode6","MasterNode2"],
+            "right": ["FaceA","Edge2","Edge3","Edge6","Edge7","MasterNode2","MasterNode6","MasterNode7","MasterNode3"],
+            "left": ["FaceB","Edge1","Edge4","Edge5","Edge8","MasterNode1","MasterNode4","MasterNode8","MasterNode5"],
+            "back": ["FaceC","Edge3","Edge4","Edge10","Edge11","MasterNode4","MasterNode3","MasterNode7","MasterNode8"],
+            "front": ["FaceD","Edge1","Edge2","Edge9","Edge12","MasterNode1","MasterNode5","MasterNode6","MasterNode2"],
             "top": ["FaceE","Edge7","Edge8","Edge11","Edge12","MasterNode5","MasterNode8","MasterNode7","MasterNode6"],
             "bottom": ["FaceF","Edge5","Edge6","Edge9","Edge10","MasterNode1","MasterNode2","MasterNode3","MasterNode4"],
         }
