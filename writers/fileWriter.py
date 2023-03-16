@@ -211,7 +211,7 @@ def writeBanner(OF_version = 8):
      "  \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox \n" +
      "   \\\\    /   O peration     | Website:  https://openfoam.org \n" +
     f"    \\\\  /    A nd           | Version:  {OF_version} \n" +
-     "     \\\\/     M anipulation  | Generated with meshioToFoam\n" +
+     "     \\\\/     M anipulation  | Generated with voxelFoam\n" +
      "\*---------------------------------------------------------------------------*/\n")
 
     return banner
