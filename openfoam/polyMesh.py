@@ -14,18 +14,20 @@ class polyMesh:
         self.generateFaceZones()
         self.createAllFaces()
 
+    
+    def __repr__(self):
+        nFaces = self.innerFaces.shape[0]
 
-        # self.faceCenter = {}
-        # self.cellCenter = {}
+        for v in self.boundary.values():
+            nFaces += v.shape[0]
 
-        # self.getFacesCenter()"
-        # self.getCellsCenter()
-
-        # self.faceArea = {}
-        # self.cellVolume = {}
-
-        # self.getFacesArea()
-        # self.getCellsVolume()
+        items = [
+            "polyMesh object",
+            f"num nodes: {self.points.shape[0]}",
+            f"num cells: {self.cells[0]['points'].shape[0]}",
+            f"num faces: {nFaces}",
+        ]
+        return "<" + ", ".join(items) + ">"
 
 
     def getPoints(self, mesh):
