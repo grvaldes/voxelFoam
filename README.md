@@ -4,9 +4,13 @@ Python script for transforming voxelized ABAQUS meshes generated in TexGen into 
 
 ## Usage
 
-Call with command:
+If run as a package, call voxelFoam folder with command:
 
     python3 voxelFoam <mesh_file> <case_folder_name>
+    
+If run from code, call:
+
+    python3 __main__.py <mesh_file> <case_folder_name>
     
 ## Issues
 
