@@ -14,6 +14,8 @@ def voxelFoam(argv):
     # Adjusting mesh object according to mesh origin
     poly = of.polyMesh(mesh, file_in.split(".")[-1])
 
+    poly = of.cellRepetition(poly, 5, 5, 3)
+
     # Creating folder structure
     of.createFolderStructure(file_out)
 

@@ -31,7 +31,7 @@ class polyMesh:
 
 
     def getPoints(self, mesh):
-        pts = mesh.points
+        pts = mesh.points #* MM_TO_METERS
         zon = mesh.point_sets
 
         self.boundBox = np.vstack((np.min(pts,0),np.max(pts,0))).T
@@ -195,15 +195,6 @@ class polyMesh:
 
     def generateFaceZones(self):
         self.faceZones = {}
-
-        texgen_to_openfoam = {
-            "right": ["FaceA","Edge2","Edge3","Edge6","Edge7","MasterNode2","MasterNode6","MasterNode7","MasterNode3"],
-            "left": ["FaceB","Edge1","Edge4","Edge5","Edge8","MasterNode1","MasterNode4","MasterNode8","MasterNode5"],
-            "back": ["FaceC","Edge3","Edge4","Edge10","Edge11","MasterNode4","MasterNode3","MasterNode7","MasterNode8"],
-            "front": ["FaceD","Edge1","Edge2","Edge9","Edge12","MasterNode1","MasterNode5","MasterNode6","MasterNode2"],
-            "top": ["FaceE","Edge7","Edge8","Edge11","Edge12","MasterNode5","MasterNode8","MasterNode7","MasterNode6"],
-            "bottom": ["FaceF","Edge5","Edge6","Edge9","Edge10","MasterNode1","MasterNode2","MasterNode3","MasterNode4"],
-        }
 
         for k, v in texgen_to_openfoam.items():
             self.faceZones[k] = np.array([], dtype="int32")

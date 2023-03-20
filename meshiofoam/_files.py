@@ -12,5 +12,5 @@ def open_file(path_or_buf, mode="r"):
     if is_buffer(path_or_buf, mode):
         yield path_or_buf
     else:
-        with open(path_or_buf, mode) as f:
+        with open(path_or_buf, mode, encoding="unicode_escape") as f:
             yield f

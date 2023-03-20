@@ -1,5 +1,7 @@
 import numpy as np
 
+MM_TO_METERS = 0.001
+
 topological_dimension = {
     "line": 1,
     "polygon": 2,
@@ -272,4 +274,13 @@ of_twg = {
     "face2": np.array([0, 1, 3]),
     "face3": np.array([0, 3, 4, 2]),
     "face4": np.array([1, 3, 4, 3])
+}
+
+texgen_to_openfoam = {
+    "right": ["FaceA","Edge2","Edge3","Edge6","Edge7","MasterNode2","MasterNode6","MasterNode7","MasterNode3"],
+    "left": ["FaceB","Edge1","Edge4","Edge5","Edge8","MasterNode1","MasterNode4","MasterNode8","MasterNode5"],
+    "back": ["FaceC","Edge3","Edge4","Edge10","Edge11","MasterNode4","MasterNode3","MasterNode7","MasterNode8"],
+    "front": ["FaceD","Edge1","Edge2","Edge9","Edge12","MasterNode1","MasterNode5","MasterNode6","MasterNode2"],
+    "top": ["FaceE","Edge7","Edge8","Edge11","Edge12","MasterNode5","MasterNode8","MasterNode7","MasterNode6"],
+    "bottom": ["FaceF","Edge5","Edge6","Edge9","Edge10","MasterNode1","MasterNode2","MasterNode3","MasterNode4"],
 }
